@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Умный Ремонт</title>
+  <link rel="manifest" href="manifest.json">
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100 p-2 md:p-5 font-sans text-gray-800 pb-20">
+
+  <div id="app" class="max-w-3xl mx-auto">
+    <h1 class="text-3xl font-bold text-center text-blue-600 mb-6 mt-4">🏠 Умный Ремонт</h1>
+
+    <!-- 🎛 НАВИГАЦИЯ -->
+    <div class="flex justify-center mb-6">
+      <div class="bg-gray-200 p-1 rounded-lg inline-flex shadow-inner">
+        <button @click="switchTab('list')" :class="activeTab === 'list' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'" class="px-6 py-2 rounded-md font-bold text-sm transition-all">Список</button>
+        <button @click="switchTab('analytics')" :class="activeTab === 'analytics' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'" class="px-6 py-2 rounded-md font-bold text-sm transition-all">Аналитика</button>
+      </div>
+    </div>
+
+    <!-- Загрузка -->
+    <div v-if="isLoading" class="text-center text-gray-500 animate-pulse mt-10">Синхронизация с базой...</div>
+
+    <!-- ========================================== -->
+    <!-- 📱 ЭКРАН 1: СПИСОК РАСХОДОВ               -->
+    <!-- ========================================== -->
+    <div v-if="!isLoading && activeTab === 'list'" class="bg-white rounded-xl shadow-md p-4 md:p-5">
+      <div class="flex justify-between font-bold border-b pb-2 mb-2 text-gray-400 text-sm uppercase tracking-wider">
+        <span>Товар</span>
+        <span>Сумма</span>
+      </div>
+
+      <div v-for="expense in expenses" :key="expense.id" class="flex justify-between items-center py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+        <div>
+          <p class="font-medium text-lg">{{ expense.item }}</p>
+          <div class="flex items-center gap-2 mt-1">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-600">{{ expense.category }}</span>
+            <span class="text-xs text-gray-400 font-medium">{{ expense.author }}</span>
+          </div>
+        </div>
+        <div class="font-black text-gray-700 whitespace-nowrap text-lg">{{ expense.cost }} ₽</div>
+      </div>
+      
+      <div class="mt-6 pt-4 border-t-2 border-gray-100 text-right bg-gray-50 -mx-4 md:-mx-5 -mb-4 md:-mb-5 p-4 rounded-b-xl">
+        <span class="text-gray-400 uppercase text-xs font-bold tracking-wider">Итого потрачено:</span>
+        <div class="text-3xl font-black text-red-500">{{ totalSum.toLocaleString('ru-RU') }} ₽</div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 📊 ЭКРАН 2: ПРОДВИНУТАЯ АНАЛИТИКА         -->
+    <!-- ========================================== -->
+    <div v-if="!isLoading && activeTab === 'analytics'" class="space-y-6">
+      
+      <!-- 1. ПРОГРЕСС БЮДЖЕТА (Burn Rate) -->
+      <div class="bg-white rounded-xl shadow-md p-5">
+        <div class="flex justify-between items-end mb-2">
+          <h2 class="text-lg font-bold text-gray-700">Бюджет: 1.5 млн ₽</h2>
+          <span class="text-sm font-bold text-gray-500">{{ budgetPercent }}%</span>
+        </div>
+        <!-- Полоска прогресса -->
+        <div class="w-full bg-gray-200 rounded-full h-4 mb-2 overflow-hidden">
+          <div class="h-4 rounded-full transition-all duration-1000" 
+               :class="budgetPercent < 50 ? 'bg-green-500' : budgetPercent < 85 ? 'bg-yellow-400' : 'bg-red-500'" 
+               :style="{ width: budgetPercent + '%' }"></div>
+        </div>
+        <p class="text-xs text-gray-400 text-right">Потрачено: {{ totalSum.toLocaleString('ru-RU') }} ₽</p>
+      </div>
+
+      <!-- 2. ТОП-3 САМЫХ ДОРОГИХ ПОКУПОК -->
+      <div class="bg-white rounded-xl shadow-md p-5 border-l-4 border-yellow-400">
+        <h2 class="text-lg font-bold text-gray-700 mb-4 border-b pb-2">🔥 ТОП-3 дорогих покупок</h2>
+        <div v-for="(exp, index) in topExpenses" :key="index" class="flex justify-between items-center py-2 border-b last:border-0">
+          <div class="flex items-center gap-3">
+            <span class="text-xl font-black text-gray-300">#{{ index + 1 }}</span>
+            <span class="font-medium text-gray-800">{{ exp.item }}</span>
+          </div>
+          <span class="font-bold text-red-500">{{ Number(exp.cost).toLocaleString('ru-RU') }} ₽</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- 3. График Категорий -->
+        <div class="bg-white rounded-xl shadow-md p-5">
+          <h2 class="text-lg font-bold text-gray-700 mb-4 border-b pb-2">По категориям</h2>
+          <div class="relative h-64 w-full"><canvas id="categoryChart"></canvas></div>
+        </div>
+
+        <!-- 4. График Авторов -->
+        <div class="bg-white rounded-xl shadow-md p-5">
+          <h2 class="text-lg font-bold text-gray-700 mb-4 border-b pb-2">По авторам</h2>
+          <div class="relative h-64 w-full"><canvas id="authorChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- 5. Линейный график по дням -->
+      <div class="bg-white rounded-xl shadow-md p-5">
+        <h2 class="text-lg font-bold text-gray-700 mb-4 border-b pb-2">Динамика трат по дням</h2>
+        <div class="relative h-64 w-full"><canvas id="timelineChart"></canvas></div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, onMounted, computed, nextTick } = Vue;
+
+    createApp({
+      setup() {
+        const expenses = ref([]);
+        const isLoading = ref(true);
+        const activeTab = ref('list'); 
+
+        // ⚠️ ВСТАВЬ СЮДА СВОЙ URL ⚠️
+        const API_URL = "https://script.google.com/macros/s/AKfycbyab45gPgcnBot2gC-PQ_KltHxMfy2gXJvL6GrjIBmuFrY_1rSyrL643vJNLlAIod6SuA/exec"; 
+
+        const BUDGET_LIMIT = 1500000; // Твой плановый бюджет (1.5 млн)
+
+        let catChartInstance = null;
+        let authChartInstance = null;
+        let timeChartInstance = null;
+
+        // --- ВЫЧИСЛЕНИЯ (МАГИЯ VUE) ---
+        const totalSum = computed(() => expenses.value.reduce((sum, item) => sum + Number(item.cost || 0), 0));
+        
+        // Считаем процент бюджета (с защитой от превышения 100% для отрисовки)
+        const budgetPercent = computed(() => Math.min(Math.round((totalSum.value / BUDGET_LIMIT) * 100), 100));
+
+        // Вычисляем ТОП-3 покупки
+        const topExpenses = computed(() => {
+          // Создаем копию массива, сортируем по убыванию цены и отрезаем первые 3
+          return [...expenses.value].sort((a, b) => Number(b.cost) - Number(a.cost)).slice(0, 3);
+        });
+        
+        // Группировка для графиков
+        const categoryData = computed(() => {
+          const sums = {};
+          expenses.value.forEach(exp => {
+            const cat = exp.category || 'Прочее';
+            sums[cat] = (sums[cat] || 0) + Number(exp.cost || 0);
+          });
+          return sums;
+        });
+
+        const authorData = computed(() => {
+          const sums = {};
+          expenses.value.forEach(exp => {
+            const auth = exp.author || 'Неизвестно';
+            sums[auth] = (sums[auth] || 0) + Number(exp.cost || 0);
+          });
+          return sums;
+        });
+
+        // Группировка по датам (для линейного графика) - УМНАЯ ВЕРСИЯ
+        const timelineData = computed(() => {
+          const sums = {};
+          
+          // Делаем копию и переворачиваем обратно, чтобы график шел слева направо (от старых к новым)
+          const chronologicalExpenses = [...expenses.value].reverse();
+
+          chronologicalExpenses.forEach(exp => {
+            let dateOnly = 'Неизвестно';
+            
+            if (exp.date) {
+              // Режем строку либо по пробелу (наш формат), либо по букве T (формат старых дат Гугла)
+              let rawDate = String(exp.date).split(/[ T]/)[0];
+              
+              // Если Гугл отдал дату как 2026-08-04, переворачиваем ее для красоты в 04.08.2026
+              if (rawDate.includes('-')) {
+                dateOnly = rawDate.split('-').reverse().join('.');
+              } else {
+                dateOnly = rawDate;
+              }
+            }
+            
+            sums[dateOnly] = (sums[dateOnly] || 0) + Number(exp.cost || 0);
+          });
+          return sums;
+        });
+
+        const switchTab = (tabName) => {
+          activeTab.value = tabName;
+          if (tabName === 'analytics') nextTick(() => renderCharts());
+        };
+
+        const renderCharts = () => {
+          // 1. График Категорий
+          if (catChartInstance) catChartInstance.destroy();
+          catChartInstance = new Chart(document.getElementById('categoryChart'), {
+            type: 'doughnut',
+            data: { labels: Object.keys(categoryData.value), datasets: [{ data: Object.values(categoryData.value), backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'], borderWidth: 0, hoverOffset: 4 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+          });
+
+          // 2. График Авторов
+          if (authChartInstance) authChartInstance.destroy();
+          authChartInstance = new Chart(document.getElementById('authorChart'), {
+            type: 'bar',
+            data: { labels: Object.keys(authorData.value), datasets: [{ label: 'Сумма (₽)', data: Object.values(authorData.value), backgroundColor: '#6366f1', borderRadius: 6 }] },
+            options: { responsive: true, maintainAspectRatio: false }
+          });
+
+          // 3. График по Дням (Линейный)
+          if (timeChartInstance) timeChartInstance.destroy();
+          timeChartInstance = new Chart(document.getElementById('timelineChart'), {
+            type: 'line', // Линейный график!
+            data: { 
+              labels: Object.keys(timelineData.value), 
+              datasets: [{ 
+                label: 'Траты за день (₽)', 
+                data: Object.values(timelineData.value), 
+                borderColor: '#ef4444', // Красная линия
+                backgroundColor: 'rgba(239, 68, 68, 0.1)', // Легкая заливка под линией
+                borderWidth: 3,
+                tension: 0.3, // Сглаживание углов линии
+                fill: true
+              }] 
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+          });
+        };
+
+        const fetchData = async () => {
+          try {
+            const response = await fetch(API_URL);
+            const result = await response.json();
+            if (result.status === "success") {
+              expenses.value = result.data.reverse();
+              if (activeTab.value === 'analytics') nextTick(() => renderCharts());
+            }
+          } catch (error) {
+            console.error(error);
+          } finally {
+            isLoading.value = false;
+          }
+        };
+
+        onMounted(() => { fetchData(); });
+
+        return { expenses, isLoading, activeTab, switchTab, totalSum, budgetPercent, topExpenses }
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

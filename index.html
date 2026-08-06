@@ -4,31 +4,31 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Умный Ремонт</title>
-  <link rel="manifest" href="manifest.json">
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-gray-100 p-2 md:p-5 font-sans text-gray-800 pb-20">
 
-  <div id="app" class="max-w-3xl mx-auto">
+  <div id="app" class="max-w-6xl mx-auto">
     <h1 class="text-3xl font-bold text-center text-blue-600 mb-6 mt-4">🏠 Умный Ремонт</h1>
 
-    <!-- 🎛 НАВИГАЦИЯ -->
+    <!-- 🎛 НАВИГАЦИЯ (ВКЛАДКИ) -->
     <div class="flex justify-center mb-6">
-      <div class="bg-gray-200 p-1 rounded-lg inline-flex shadow-inner">
-        <button @click="switchTab('list')" :class="activeTab === 'list' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'" class="px-6 py-2 rounded-md font-bold text-sm transition-all">Список</button>
-        <button @click="switchTab('analytics')" :class="activeTab === 'analytics' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'" class="px-6 py-2 rounded-md font-bold text-sm transition-all">Аналитика</button>
+      <div class="bg-gray-200 p-1 rounded-lg inline-flex shadow-inner overflow-x-auto max-w-full">
+        <button @click="switchTab('list')" :class="activeTab === 'list' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'" class="px-4 py-2 rounded-md font-bold text-sm transition-all whitespace-nowrap">Бюджет</button>
+        <button @click="switchTab('tasks')" :class="activeTab === 'tasks' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'" class="px-4 py-2 rounded-md font-bold text-sm transition-all whitespace-nowrap">Канбан</button>
+        <button @click="switchTab('analytics')" :class="activeTab === 'analytics' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'" class="px-4 py-2 rounded-md font-bold text-sm transition-all whitespace-nowrap">Аналитика</button>
       </div>
     </div>
 
-    <!-- Загрузка -->
+    <!-- Индикатор загрузки -->
     <div v-if="isLoading" class="text-center text-gray-500 animate-pulse mt-10">Синхронизация с базой...</div>
 
     <!-- ========================================== -->
-    <!-- 📱 ЭКРАН 1: СПИСОК РАСХОДОВ               -->
+    <!-- 💰 ЭКРАН 1: БЮДЖЕТ (СПИСОК РАСХОДОВ)      -->
     <!-- ========================================== -->
-    <div v-if="!isLoading && activeTab === 'list'" class="bg-white rounded-xl shadow-md p-4 md:p-5">
+    <div v-if="!isLoading && activeTab === 'list'" class="max-w-3xl mx-auto bg-white rounded-xl shadow-md p-4 md:p-5">
       <div class="flex justify-between font-bold border-b pb-2 mb-2 text-gray-400 text-sm uppercase tracking-wider">
         <span>Товар</span>
         <span>Сумма</span>
@@ -38,7 +38,15 @@
         <div>
           <p class="font-medium text-lg">{{ expense.item }}</p>
           <div class="flex items-center gap-2 mt-1">
-            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-600">{{ expense.category }}</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
+              :class="{
+                'bg-gray-200 text-gray-700': expense.category === 'черновой',
+                'bg-green-100 text-green-700': expense.category === 'чистовой',
+                'bg-yellow-100 text-yellow-700': expense.category === 'расходники',
+                'bg-blue-100 text-blue-700': !['черновой','чистовой','расходники'].includes(expense.category)
+              }">
+              {{ expense.category }}
+            </span>
             <span class="text-xs text-gray-400 font-medium">{{ expense.author }}</span>
           </div>
         </div>
@@ -52,58 +60,68 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- 📊 ЭКРАН 2: ПРОДВИНУТАЯ АНАЛИТИКА         -->
+    <!-- 🏗 ЭКРАН 2: КАНБАН-ДОСКА (ЗАДАЧИ)        -->
     <!-- ========================================== -->
-    <div v-if="!isLoading && activeTab === 'analytics'" class="space-y-6">
-      
-      <!-- 1. ПРОГРЕСС БЮДЖЕТА (Burn Rate) -->
-      <div class="bg-white rounded-xl shadow-md p-5">
-        <div class="flex justify-between items-end mb-2">
-          <h2 class="text-lg font-bold text-gray-700">Бюджет: 1.5 млн ₽</h2>
-          <span class="text-sm font-bold text-gray-500">{{ budgetPercent }}%</span>
+    <div v-if="!isLoading && activeTab === 'tasks'" class="grid grid-cols-1 md:grid-cols-5 gap-4 items-start">
+      <div v-for="col in kanbanColumns" :key="col.id" class="bg-gray-200 rounded-lg p-3 flex flex-col gap-3">
+        
+        <div class="flex justify-between items-center">
+          <h3 class="font-bold text-gray-700">{{ col.title }}</h3>
+          <span class="bg-white text-gray-500 text-xs px-2 py-1 rounded-full shadow-sm">{{ getTasks(col.id).length }}</span>
         </div>
-        <!-- Полоска прогресса -->
-        <div class="w-full bg-gray-200 rounded-full h-4 mb-2 overflow-hidden">
-          <div class="h-4 rounded-full transition-all duration-1000" 
-               :class="budgetPercent < 50 ? 'bg-green-500' : budgetPercent < 85 ? 'bg-yellow-400' : 'bg-red-500'" 
-               :style="{ width: budgetPercent + '%' }"></div>
-        </div>
-        <p class="text-xs text-gray-400 text-right">Потрачено: {{ totalSum.toLocaleString('ru-RU') }} ₽</p>
-      </div>
 
-      <!-- 2. ТОП-3 САМЫХ ДОРОГИХ ПОКУПОК -->
-      <div class="bg-white rounded-xl shadow-md p-5 border-l-4 border-yellow-400">
-        <h2 class="text-lg font-bold text-gray-700 mb-4 border-b pb-2">🔥 ТОП-3 дорогих покупок</h2>
-        <div v-for="(exp, index) in topExpenses" :key="index" class="flex justify-between items-center py-2 border-b last:border-0">
-          <div class="flex items-center gap-3">
-            <span class="text-xl font-black text-gray-300">#{{ index + 1 }}</span>
-            <span class="font-medium text-gray-800">{{ exp.item }}</span>
+        <!-- Карточки задач -->
+        <div v-for="task in getTasks(col.id)" :key="task.id" class="bg-white p-3 rounded shadow-sm border-l-4" :class="col.borderColor">
+          <p class="font-medium text-gray-800 text-sm mb-2 leading-tight">{{ task.task_name }}</p>
+          
+          <div class="flex justify-between items-center mt-2">
+            <!-- Дедлайн с проверкой просрочки -->
+            <span class="text-xs font-bold" :class="isOverdue(task.deadline) ? 'text-red-500' : 'text-gray-400'">
+              📅 {{ formatDate(task.deadline) }}
+            </span>
+            
+            <!-- Выпадающий список смены статуса (Сразу летит в Гугл Таблицу) -->
+            <select 
+              :value="task.status" 
+              @change="updateTaskStatus(task, $event.target.value)"
+              class="text-xs bg-gray-100 border border-gray-300 rounded px-1 py-1 outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer">
+              <option v-for="opt in kanbanColumns" :key="opt.id" :value="opt.id">{{ opt.title.replace(/[^\w\sа-яА-Я]/gi, '').trim() }}</option>
+            </select>
           </div>
-          <span class="font-bold text-red-500">{{ Number(exp.cost).toLocaleString('ru-RU') }} ₽</span>
+        </div>
+
+        <div v-if="getTasks(col.id).length === 0" class="text-center text-xs text-gray-400 py-4 border-2 border-dashed border-gray-300 rounded">
+          Пусто
         </div>
       </div>
+    </div>
 
+    <!-- ========================================== -->
+    <!-- 📊 ЭКРАН 3: АНАЛИТИКА                    -->
+    <!-- ========================================== -->
+    <div v-if="!isLoading && activeTab === 'analytics'" class="max-w-3xl mx-auto space-y-6">
+      
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <!-- 3. График Категорий -->
+        <!-- График Категорий -->
         <div class="bg-white rounded-xl shadow-md p-5">
           <h2 class="text-lg font-bold text-gray-700 mb-4 border-b pb-2">По категориям</h2>
           <div class="relative h-64 w-full"><canvas id="categoryChart"></canvas></div>
         </div>
 
-        <!-- 4. График Авторов -->
+        <!-- График Авторов -->
         <div class="bg-white rounded-xl shadow-md p-5">
-          <h2 class="text-lg font-bold text-gray-700 mb-4 border-b pb-2">По авторам</h2>
+          <h2 class="text-lg font-bold text-gray-700 mb-4 border-b pb-2">Кто сколько потратил</h2>
           <div class="relative h-64 w-full"><canvas id="authorChart"></canvas></div>
         </div>
       </div>
 
-      <!-- 5. Линейный график по дням -->
+      <!-- Линейный график по дням -->
       <div class="bg-white rounded-xl shadow-md p-5">
         <h2 class="text-lg font-bold text-gray-700 mb-4 border-b pb-2">Динамика трат по дням</h2>
         <div class="relative h-64 w-full"><canvas id="timelineChart"></canvas></div>
       </div>
-
     </div>
+
   </div>
 
   <script>
@@ -112,31 +130,51 @@
     createApp({
       setup() {
         const expenses = ref([]);
+        const tasks = ref([]);
         const isLoading = ref(true);
         const activeTab = ref('list'); 
+        // Красивое форматирование даты
+        const formatDate = (rawDate) => {
+          if (!rawDate) return "Без даты";
+          const date = new Date(rawDate);
+          if (isNaN(date)) return rawDate; // Если это просто текст, оставляем как есть
+          return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        };
 
-        // ⚠️ ВСТАВЬ СЮДА СВОЙ URL ⚠️
+        // ⚠️ ВСТАВЬ СЮДА СВОЙ АКТУАЛЬНЫЙ URL ИЗ GOOGLE APPS SCRIPT ⚠️
         const API_URL = "https://script.google.com/macros/s/AKfycbyab45gPgcnBot2gC-PQ_KltHxMfy2gXJvL6GrjIBmuFrY_1rSyrL643vJNLlAIod6SuA/exec"; 
 
-        const BUDGET_LIMIT = 1500000; // Твой плановый бюджет (1.5 млн)
+        // Настройки Канбан-колонок
+        const kanbanColumns = [
+          { id: 'Надо купить', title: '🛒 Надо купить', borderColor: 'border-blue-400' },
+          { id: 'В доставке', title: '🚚 В доставке', borderColor: 'border-yellow-400' },
+          { id: 'Ждет монтажа', title: '⏳ Ждет монтажа', borderColor: 'border-purple-400' },
+          { id: 'В работе', title: '🔨 В работе', borderColor: 'border-orange-400' },
+          { id: 'Готово', title: '✅ Готово', borderColor: 'border-green-400' },
+          { id: 'Корзина', title: '🗑 Корзина', borderColor: 'border-gray-400' }
+        ];
 
         let catChartInstance = null;
         let authChartInstance = null;
         let timeChartInstance = null;
 
-        // --- ВЫЧИСЛЕНИЯ (МАГИЯ VUE) ---
+        // ВЫЧИСЛЕНИЯ
         const totalSum = computed(() => expenses.value.reduce((sum, item) => sum + Number(item.cost || 0), 0));
         
-        // Считаем процент бюджета (с защитой от превышения 100% для отрисовки)
-        const budgetPercent = computed(() => Math.min(Math.round((totalSum.value / BUDGET_LIMIT) * 100), 100));
+        const getTasks = (status) => tasks.value.filter(t => t.status === status);
 
-        // Вычисляем ТОП-3 покупки
-        const topExpenses = computed(() => {
-          // Создаем копию массива, сортируем по убыванию цены и отрезаем первые 3
-          return [...expenses.value].sort((a, b) => Number(b.cost) - Number(a.cost)).slice(0, 3);
-        });
-        
-        // Группировка для графиков
+        const isOverdue = (deadline) => {
+          if (!deadline || deadline === "Без срока") return false;
+          let parts = deadline.split("-");
+          if (parts.length === 3) {
+            const taskDate = new Date(parts[0], parts[1] - 1, parts[2]);
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            return taskDate < today; 
+          }
+          return false;
+        };
+
         const categoryData = computed(() => {
           const sums = {};
           expenses.value.forEach(exp => {
@@ -155,28 +193,17 @@
           return sums;
         });
 
-        // Группировка по датам (для линейного графика) - УМНАЯ ВЕРСИЯ
+        // Умная сортировка дат для таймлайна
         const timelineData = computed(() => {
           const sums = {};
-          
-          // Делаем копию и переворачиваем обратно, чтобы график шел слева направо (от старых к новым)
           const chronologicalExpenses = [...expenses.value].reverse();
-
           chronologicalExpenses.forEach(exp => {
             let dateOnly = 'Неизвестно';
-            
             if (exp.date) {
-              // Режем строку либо по пробелу (наш формат), либо по букве T (формат старых дат Гугла)
               let rawDate = String(exp.date).split(/[ T]/)[0];
-              
-              // Если Гугл отдал дату как 2026-08-04, переворачиваем ее для красоты в 04.08.2026
-              if (rawDate.includes('-')) {
-                dateOnly = rawDate.split('-').reverse().join('.');
-              } else {
-                dateOnly = rawDate;
-              }
+              if (rawDate.includes('-')) dateOnly = rawDate.split('-').reverse().join('.');
+              else dateOnly = rawDate;
             }
-            
             sums[dateOnly] = (sums[dateOnly] || 0) + Number(exp.cost || 0);
           });
           return sums;
@@ -187,8 +214,26 @@
           if (tabName === 'analytics') nextTick(() => renderCharts());
         };
 
+        // ОТПРАВКА СТАТУСА НА БЭКЕНД
+        const updateTaskStatus = async (task, newStatus) => {
+          const oldStatus = task.status;
+          task.status = newStatus; // Меняем на экране мгновенно (Оптимистичный UI)
+
+          try {
+            const response = await fetch(API_URL, {
+              method: "POST",
+              body: JSON.stringify({ action: "updateTask", taskId: task.id, newStatus: newStatus })
+            });
+            const result = await response.json();
+            if (result.status !== "success") throw new Error("Сбой сервера");
+          } catch (error) {
+            console.error("Ошибка при обновлении:", error);
+            alert("Ошибка сети. Возвращаем карточку назад.");
+            task.status = oldStatus; 
+          }
+        };
+
         const renderCharts = () => {
-          // 1. График Категорий
           if (catChartInstance) catChartInstance.destroy();
           catChartInstance = new Chart(document.getElementById('categoryChart'), {
             type: 'doughnut',
@@ -196,7 +241,6 @@
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
           });
 
-          // 2. График Авторов
           if (authChartInstance) authChartInstance.destroy();
           authChartInstance = new Chart(document.getElementById('authorChart'), {
             type: 'bar',
@@ -204,36 +248,29 @@
             options: { responsive: true, maintainAspectRatio: false }
           });
 
-          // 3. График по Дням (Линейный)
           if (timeChartInstance) timeChartInstance.destroy();
           timeChartInstance = new Chart(document.getElementById('timelineChart'), {
-            type: 'line', // Линейный график!
-            data: { 
-              labels: Object.keys(timelineData.value), 
-              datasets: [{ 
-                label: 'Траты за день (₽)', 
-                data: Object.values(timelineData.value), 
-                borderColor: '#ef4444', // Красная линия
-                backgroundColor: 'rgba(239, 68, 68, 0.1)', // Легкая заливка под линией
-                borderWidth: 3,
-                tension: 0.3, // Сглаживание углов линии
-                fill: true
-              }] 
-            },
+            type: 'line',
+            data: { labels: Object.keys(timelineData.value), datasets: [{ label: 'Траты за день (₽)', data: Object.values(timelineData.value), borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 3, tension: 0.3, fill: true }] },
             options: { responsive: true, maintainAspectRatio: false }
           });
         };
 
+        // СКАЧИВАЕМ ДВЕ ТАБЛИЦЫ СРАЗУ
         const fetchData = async () => {
           try {
-            const response = await fetch(API_URL);
-            const result = await response.json();
-            if (result.status === "success") {
-              expenses.value = result.data.reverse();
-              if (activeTab.value === 'analytics') nextTick(() => renderCharts());
-            }
+            // Качаем бюджет
+            const budgetRes = await fetch(API_URL + "?sheet=Budget");
+            const budgetData = await budgetRes.json();
+            if (budgetData.status === "success") expenses.value = budgetData.data.reverse();
+
+            // Качаем задачи (Канбан)
+            const tasksRes = await fetch(API_URL + "?sheet=Tasks");
+            const tasksData = await tasksRes.json();
+            if (tasksData.status === "success") tasks.value = tasksData.data.reverse();
+
           } catch (error) {
-            console.error(error);
+            console.error("Ошибка сети:", error);
           } finally {
             isLoading.value = false;
           }
@@ -241,7 +278,7 @@
 
         onMounted(() => { fetchData(); });
 
-        return { expenses, isLoading, activeTab, switchTab, totalSum, budgetPercent, topExpenses }
+        return { expenses, tasks, isLoading, activeTab, switchTab, totalSum, kanbanColumns, getTasks, isOverdue, updateTaskStatus, formatDate }
       }
     }).mount('#app');
   </script>

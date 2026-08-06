@@ -214,19 +214,15 @@
           if (tabName === 'analytics') nextTick(() => renderCharts());
         };
 
-        // 🚀 ГЛАВНАЯ МАГИЯ: ОБНОВЛЕНИЕ СТАТУСА (FIX CORS)
+        // 🚀 ГЛАВНАЯ МАГИЯ: ОБНОВЛЕНИЕ СТАТУСА (ИДЕАЛЬНЫЙ ФЕТЧ)
         const updateTaskStatus = async (task, newStatus) => {
           const oldStatus = task.status;
           task.status = newStatus; // Оптимистичный UI
 
           try {
-            // Отправляем POST-запрос в режиме no-cors (Выстрелил и забыл)
-            await fetch(API_URL, {
+            // Отправляем чистый POST запрос (без mode и headers, Google съест его идеально)
+            const response = await fetch(API_URL, {
               method: "POST",
-              mode: "no-cors", // 🛡 МАГИЯ: Говорим браузеру игнорировать CORS-политики Гугла
-              headers: {
-                "Content-Type": "text/plain;charset=utf-8" // Чтобы Гугл точно принял пакет
-              },
               body: JSON.stringify({
                 action: "updateTask",
                 taskId: task.id,
@@ -234,13 +230,14 @@
               })
             });
             
-            // При no-cors мы физически не можем прочитать ответ Гугла (response.json).
-            // Но нам и не надо! Если код дошел сюда и не упал в catch — значит пакет улетел в интернет успешно.
+            // Читаем успешный JSON ответ от сервера Гугла
+            const result = await response.json();
+            if (result.status !== "success") throw new Error("Сервер вернул ошибку");
 
           } catch (error) {
             console.error("Ошибка при обновлении:", error);
-            alert("Не удалось перенести карточку. Откатываем назад.");
-            task.status = oldStatus; // Откатываем только если вообще нет интернета
+            alert("Ошибка сети. Возвращаем карточку назад.");
+            task.status = oldStatus; // Откатываем
           }
         };
 

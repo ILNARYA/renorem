@@ -13,12 +13,13 @@
   <div id="app" class="max-w-6xl mx-auto">
     <h1 class="text-3xl font-bold text-center text-blue-600 mb-6 mt-4">🏠 Умный Ремонт</h1>
 
-    <!-- 🎛 НАВИГАЦИЯ (ВКЛАДКИ) -->
+    <!-- 🎛 НАВИГАЦИЯ -->
     <div class="flex justify-center mb-6">
       <div class="bg-gray-200 p-1 rounded-lg inline-flex shadow-inner overflow-x-auto max-w-full">
-        <button @click="switchTab('list')" :class="activeTab === 'list' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'" class="px-4 py-2 rounded-md font-bold text-sm transition-all whitespace-nowrap">Бюджет</button>
-        <button @click="switchTab('tasks')" :class="activeTab === 'tasks' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'" class="px-4 py-2 rounded-md font-bold text-sm transition-all whitespace-nowrap">Канбан</button>
-        <button @click="switchTab('analytics')" :class="activeTab === 'analytics' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'" class="px-4 py-2 rounded-md font-bold text-sm transition-all whitespace-nowrap">Аналитика</button>
+        <button @click="switchTab('list')" :class="activeTab === 'list' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'" class="px-3 py-2 rounded-md font-bold text-sm transition-all whitespace-nowrap">Бюджет</button>
+        <button @click="switchTab('tasks')" :class="activeTab === 'tasks' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'" class="px-3 py-2 rounded-md font-bold text-sm transition-all whitespace-nowrap">Канбан</button>
+        <button @click="switchTab('timeline')" :class="activeTab === 'timeline' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'" class="px-3 py-2 rounded-md font-bold text-sm transition-all whitespace-nowrap">График</button>
+        <button @click="switchTab('analytics')" :class="activeTab === 'analytics' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'" class="px-3 py-2 rounded-md font-bold text-sm transition-all whitespace-nowrap">Аналитика</button>
       </div>
     </div>
 
@@ -26,25 +27,19 @@
     <div v-if="isLoading" class="text-center text-gray-500 animate-pulse mt-10">Синхронизация с базой...</div>
 
     <!-- ========================================== -->
-    <!-- 💰 ЭКРАН 1: БЮДЖЕТ (СПИСОК РАСХОДОВ)      -->
+    <!-- 💰 ЭКРАН 1: БЮДЖЕТ                         -->
     <!-- ========================================== -->
     <div v-if="!isLoading && activeTab === 'list'" class="max-w-3xl mx-auto bg-white rounded-xl shadow-md p-4 md:p-5">
       <div class="flex justify-between font-bold border-b pb-2 mb-2 text-gray-400 text-sm uppercase tracking-wider">
         <span>Товар</span>
         <span>Сумма</span>
       </div>
-
       <div v-for="expense in expenses" :key="expense.id" class="flex justify-between items-center py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
         <div>
           <p class="font-medium text-lg">{{ expense.item }}</p>
           <div class="flex items-center gap-2 mt-1">
             <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
-              :class="{
-                'bg-gray-200 text-gray-700': expense.category === 'черновой',
-                'bg-green-100 text-green-700': expense.category === 'чистовой',
-                'bg-yellow-100 text-yellow-700': expense.category === 'расходники',
-                'bg-blue-100 text-blue-700': !['черновой','чистовой','расходники'].includes(expense.category)
-              }">
+              :class="{'bg-gray-200 text-gray-700': expense.category === 'черновой', 'bg-green-100 text-green-700': expense.category === 'чистовой', 'bg-yellow-100 text-yellow-700': expense.category === 'расходники', 'bg-blue-100 text-blue-700': !['черновой','чистовой','расходники'].includes(expense.category)}">
               {{ expense.category }}
             </span>
             <span class="text-xs text-gray-400 font-medium">{{ expense.author }}</span>
@@ -52,74 +47,86 @@
         </div>
         <div class="font-black text-gray-700 whitespace-nowrap text-lg">{{ expense.cost }} ₽</div>
       </div>
-      
       <div class="mt-6 pt-4 border-t-2 border-gray-100 text-right bg-gray-50 -mx-4 md:-mx-5 -mb-4 md:-mb-5 p-4 rounded-b-xl">
-        <span class="text-gray-400 uppercase text-xs font-bold tracking-wider">Итого потрачено:</span>
+        <span class="text-gray-400 uppercase text-xs font-bold tracking-wider">Итого:</span>
         <div class="text-3xl font-black text-red-500">{{ totalSum.toLocaleString('ru-RU') }} ₽</div>
       </div>
     </div>
 
     <!-- ========================================== -->
-    <!-- 🏗 ЭКРАН 2: КАНБАН-ДОСКА (ЗАДАЧИ)        -->
+    <!-- 🏗 ЭКРАН 2: КАНБАН-ДОСКА                   -->
     <!-- ========================================== -->
     <div v-if="!isLoading && activeTab === 'tasks'" class="grid grid-cols-1 md:grid-cols-5 gap-4 items-start">
       <div v-for="col in kanbanColumns" :key="col.id" class="bg-gray-200 rounded-lg p-3 flex flex-col gap-3">
-        
         <div class="flex justify-between items-center">
           <h3 class="font-bold text-gray-700">{{ col.title }}</h3>
           <span class="bg-white text-gray-500 text-xs px-2 py-1 rounded-full shadow-sm">{{ getTasks(col.id).length }}</span>
         </div>
-
-        <!-- Карточки задач -->
         <div v-for="task in getTasks(col.id)" :key="task.id" class="bg-white p-3 rounded shadow-sm border-l-4" :class="col.borderColor">
           <p class="font-medium text-gray-800 text-sm mb-2 leading-tight">{{ task.task_name }}</p>
-          
           <div class="flex justify-between items-center mt-2">
-            <!-- Дедлайн с проверкой просрочки -->
-            <span class="text-xs font-bold" :class="isOverdue(task.deadline) ? 'text-red-500' : 'text-gray-400'">
+            <span class="text-xs font-bold" :class="isOverdue(task.deadline) && task.status !== 'Готово' ? 'text-red-500' : 'text-gray-400'">
               📅 {{ formatDate(task.deadline) }}
             </span>
-            
-            <!-- Выпадающий список смены статуса (Сразу летит в Гугл Таблицу) -->
-            <select 
-              :value="task.status" 
-              @change="updateTaskStatus(task, $event.target.value)"
-              class="text-xs bg-gray-100 border border-gray-300 rounded px-1 py-1 outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer">
+            <select :value="task.status" @change="updateTaskStatus(task, $event.target.value)" class="text-xs bg-gray-100 border border-gray-300 rounded px-1 py-1 outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer">
               <option v-for="opt in kanbanColumns" :key="opt.id" :value="opt.id">{{ opt.title.replace(/[^\w\sа-яА-Я]/gi, '').trim() }}</option>
             </select>
           </div>
-        </div>
-
-        <div v-if="getTasks(col.id).length === 0" class="text-center text-xs text-gray-400 py-4 border-2 border-dashed border-gray-300 rounded">
-          Пусто
         </div>
       </div>
     </div>
 
     <!-- ========================================== -->
-    <!-- 📊 ЭКРАН 3: АНАЛИТИКА                    -->
+    <!-- ⏳ ЭКРАН 3: ТАЙМЛАЙН (ГРАФИК СРОКОВ)       -->
+    <!-- ========================================== -->
+    <div v-if="!isLoading && activeTab === 'timeline'" class="max-w-2xl mx-auto bg-white rounded-xl shadow-md p-6">
+      <h2 class="text-xl font-bold text-gray-700 mb-6 text-center">График этапов ремонта</h2>
+      
+      <!-- Вертикальная линия -->
+      <div class="relative border-l-2 border-gray-200 ml-3 md:ml-6 space-y-8">
+        
+        <div v-for="(task, index) in sortedTasks" :key="task.id" class="relative pl-6 md:pl-8">
+          
+          <!-- Цветная точка на линии -->
+          <div class="absolute w-4 h-4 rounded-full border-4 border-white -left-[9px] top-1"
+               :class="task.status === 'Готово' ? 'bg-green-500' : (isOverdue(task.deadline) ? 'bg-red-500' : 'bg-blue-500')">
+          </div>
+          
+          <!-- Карточка задачи -->
+          <div class="bg-gray-50 rounded-lg p-4 shadow-sm border border-gray-100 relative">
+            <!-- Стрелочка (треугольник) к линии -->
+            <div class="absolute w-3 h-3 bg-gray-50 border-t border-l border-gray-100 transform -rotate-45 -left-[7px] top-1.5"></div>
+            
+            <div class="flex justify-between items-start mb-1">
+              <span class="text-xs font-black uppercase tracking-wider" 
+                    :class="task.status === 'Готово' ? 'text-green-600' : (isOverdue(task.deadline) ? 'text-red-600' : 'text-blue-600')">
+                {{ formatDate(task.deadline) }}
+              </span>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white text-gray-500 border border-gray-200">
+                {{ task.status }}
+              </span>
+            </div>
+            
+            <p class="font-medium text-gray-800 mt-1" :class="{'line-through text-gray-400': task.status === 'Готово'}">
+              {{ task.task_name }}
+            </p>
+          </div>
+
+        </div>
+
+        <div v-if="sortedTasks.length === 0" class="pl-6 text-gray-400 text-sm">Нет задач с установленными сроками.</div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 📊 ЭКРАН 4: АНАЛИТИКА                    -->
     <!-- ========================================== -->
     <div v-if="!isLoading && activeTab === 'analytics'" class="max-w-3xl mx-auto space-y-6">
-      
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <!-- График Категорий -->
-        <div class="bg-white rounded-xl shadow-md p-5">
-          <h2 class="text-lg font-bold text-gray-700 mb-4 border-b pb-2">По категориям</h2>
-          <div class="relative h-64 w-full"><canvas id="categoryChart"></canvas></div>
-        </div>
-
-        <!-- График Авторов -->
-        <div class="bg-white rounded-xl shadow-md p-5">
-          <h2 class="text-lg font-bold text-gray-700 mb-4 border-b pb-2">Кто сколько потратил</h2>
-          <div class="relative h-64 w-full"><canvas id="authorChart"></canvas></div>
-        </div>
+        <div class="bg-white rounded-xl shadow-md p-5"><h2 class="text-lg font-bold text-gray-700 mb-4 border-b pb-2">По категориям</h2><div class="relative h-64 w-full"><canvas id="categoryChart"></canvas></div></div>
+        <div class="bg-white rounded-xl shadow-md p-5"><h2 class="text-lg font-bold text-gray-700 mb-4 border-b pb-2">По авторам</h2><div class="relative h-64 w-full"><canvas id="authorChart"></canvas></div></div>
       </div>
-
-      <!-- Линейный график по дням -->
-      <div class="bg-white rounded-xl shadow-md p-5">
-        <h2 class="text-lg font-bold text-gray-700 mb-4 border-b pb-2">Динамика трат по дням</h2>
-        <div class="relative h-64 w-full"><canvas id="timelineChart"></canvas></div>
-      </div>
+      <div class="bg-white rounded-xl shadow-md p-5"><h2 class="text-lg font-bold text-gray-700 mb-4 border-b pb-2">Динамика трат по дням</h2><div class="relative h-64 w-full"><canvas id="timelineChart"></canvas></div></div>
     </div>
 
   </div>
@@ -132,19 +139,11 @@
         const expenses = ref([]);
         const tasks = ref([]);
         const isLoading = ref(true);
-        const activeTab = ref('list'); 
-        // Красивое форматирование даты
-        const formatDate = (rawDate) => {
-          if (!rawDate) return "Без даты";
-          const date = new Date(rawDate);
-          if (isNaN(date)) return rawDate; // Если это просто текст, оставляем как есть
-          return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        };
+        const activeTab = ref('timeline'); // Откроем Таймлайн по умолчанию для теста
 
-        // ⚠️ ВСТАВЬ СЮДА СВОЙ АКТУАЛЬНЫЙ URL ИЗ GOOGLE APPS SCRIPT ⚠️
-        const API_URL = "https://script.google.com/macros/s/AKfycbyab45gPgcnBot2gC-PQ_KltHxMfy2gXJvL6GrjIBmuFrY_1rSyrL643vJNLlAIod6SuA/exec"; 
+        // ТВОЙ БОЕВОЙ URL
+        const API_URL = "https://script.google.com/macros/s/AKfycbyab45gPgcnBot2gC-PQ_KltHxMfy2gXJvL6GrjIBmuFrY_1rSyrL643vJNLlAIod6SuA/exec";
 
-        // Настройки Канбан-колонок
         const kanbanColumns = [
           { id: 'Надо купить', title: '🛒 Надо купить', borderColor: 'border-blue-400' },
           { id: 'В доставке', title: '🚚 В доставке', borderColor: 'border-yellow-400' },
@@ -154,17 +153,19 @@
           { id: 'Корзина', title: '🗑 Корзина', borderColor: 'border-gray-400' }
         ];
 
-        let catChartInstance = null;
-        let authChartInstance = null;
-        let timeChartInstance = null;
-
-        // ВЫЧИСЛЕНИЯ
+        // 🧠 ВЫЧИСЛЕНИЯ
         const totalSum = computed(() => expenses.value.reduce((sum, item) => sum + Number(item.cost || 0), 0));
-        
         const getTasks = (status) => tasks.value.filter(t => t.status === status);
 
+        const formatDate = (rawDate) => {
+          if (!rawDate || rawDate === "Без срока" || rawDate === "null") return "Без даты";
+          const date = new Date(rawDate);
+          if (isNaN(date)) return rawDate; 
+          return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        };
+
         const isOverdue = (deadline) => {
-          if (!deadline || deadline === "Без срока") return false;
+          if (!deadline || deadline === "Без срока" || deadline === "null") return false;
           let parts = deadline.split("-");
           if (parts.length === 3) {
             const taskDate = new Date(parts[0], parts[1] - 1, parts[2]);
@@ -174,6 +175,13 @@
           }
           return false;
         };
+
+        // 🔥 МАГИЯ ТАЙМЛАЙНА: Сортируем задачи по дате (от старых/ближайших к будущим)
+        const sortedTasks = computed(() => {
+          return [...tasks.value]
+            .filter(t => t.deadline && t.deadline !== "Без срока" && t.deadline !== "null" && t.status !== "Корзина") // Убираем бессрочные и удаленные
+            .sort((a, b) => new Date(a.deadline) - new Date(b.deadline)); // Сортируем по возрастанию даты
+        });
 
         const categoryData = computed(() => {
           const sums = {};
@@ -193,7 +201,6 @@
           return sums;
         });
 
-        // Умная сортировка дат для таймлайна
         const timelineData = computed(() => {
           const sums = {};
           const chronologicalExpenses = [...expenses.value].reverse();
@@ -214,79 +221,63 @@
           if (tabName === 'analytics') nextTick(() => renderCharts());
         };
 
-        // 🚀 ГЛАВНАЯ МАГИЯ: ОБНОВЛЕНИЕ СТАТУСА (ИДЕАЛЬНЫЙ ФЕТЧ)
+        // ФЕТЧ И ОБНОВЛЕНИЕ
         const updateTaskStatus = async (task, newStatus) => {
           const oldStatus = task.status;
-          task.status = newStatus; // Оптимистичный UI
-
+          task.status = newStatus; 
           try {
-            // Отправляем чистый POST запрос (без mode и headers, Google съест его идеально)
             const response = await fetch(API_URL, {
               method: "POST",
-              body: JSON.stringify({
-                action: "updateTask",
-                taskId: task.id,
-                newStatus: newStatus
-              })
+              body: JSON.stringify({ action: "updateTask", taskId: task.id, newStatus: newStatus })
             });
-            
-            // Читаем успешный JSON ответ от сервера Гугла
             const result = await response.json();
-            if (result.status !== "success") throw new Error("Сервер вернул ошибку");
-
+            if (result.status !== "success") throw new Error("Сбой сервера");
           } catch (error) {
             console.error("Ошибка при обновлении:", error);
-            alert("Ошибка сети. Возвращаем карточку назад.");
-            task.status = oldStatus; // Откатываем
+            task.status = oldStatus; 
           }
         };
+
+        let catChartInstance = null;
+        let authChartInstance = null;
+        let timeChartInstance = null;
 
         const renderCharts = () => {
           if (catChartInstance) catChartInstance.destroy();
           catChartInstance = new Chart(document.getElementById('categoryChart'), {
-            type: 'doughnut',
-            data: { labels: Object.keys(categoryData.value), datasets: [{ data: Object.values(categoryData.value), backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'], borderWidth: 0, hoverOffset: 4 }] },
+            type: 'doughnut', data: { labels: Object.keys(categoryData.value), datasets: [{ data: Object.values(categoryData.value), backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'], borderWidth: 0, hoverOffset: 4 }] },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
           });
 
           if (authChartInstance) authChartInstance.destroy();
           authChartInstance = new Chart(document.getElementById('authorChart'), {
-            type: 'bar',
-            data: { labels: Object.keys(authorData.value), datasets: [{ label: 'Сумма (₽)', data: Object.values(authorData.value), backgroundColor: '#6366f1', borderRadius: 6 }] },
+            type: 'bar', data: { labels: Object.keys(authorData.value), datasets: [{ label: 'Сумма (₽)', data: Object.values(authorData.value), backgroundColor: '#6366f1', borderRadius: 6 }] },
             options: { responsive: true, maintainAspectRatio: false }
           });
 
           if (timeChartInstance) timeChartInstance.destroy();
           timeChartInstance = new Chart(document.getElementById('timelineChart'), {
-            type: 'line',
-            data: { labels: Object.keys(timelineData.value), datasets: [{ label: 'Траты за день (₽)', data: Object.values(timelineData.value), borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 3, tension: 0.3, fill: true }] },
+            type: 'line', data: { labels: Object.keys(timelineData.value), datasets: [{ label: 'Траты за день (₽)', data: Object.values(timelineData.value), borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 3, tension: 0.3, fill: true }] },
             options: { responsive: true, maintainAspectRatio: false }
           });
         };
 
-        // СКАЧИВАЕМ ДВЕ ТАБЛИЦЫ СРАЗУ
         const fetchData = async () => {
           try {
-            // Качаем бюджет
             const budgetRes = await fetch(API_URL + "?sheet=Budget");
             const budgetData = await budgetRes.json();
             if (budgetData.status === "success") expenses.value = budgetData.data.reverse();
 
-            // Качаем задачи (Канбан)
             const tasksRes = await fetch(API_URL + "?sheet=Tasks");
             const tasksData = await tasksRes.json();
             if (tasksData.status === "success") tasks.value = tasksData.data.reverse();
-
-          } catch (error) {
-            console.error("Ошибка сети:", error);
-          } finally {
-            isLoading.value = false;
-          }
+          } catch (error) { console.error("Ошибка сети:", error); } 
+          finally { isLoading.value = false; }
         };
 
         onMounted(() => { fetchData(); });
 
-        return { expenses, tasks, isLoading, activeTab, switchTab, totalSum, kanbanColumns, getTasks, isOverdue, updateTaskStatus, formatDate }
+        return { expenses, tasks, sortedTasks, isLoading, activeTab, switchTab, totalSum, kanbanColumns, getTasks, isOverdue, updateTaskStatus, formatDate }
       }
     }).mount('#app');
   </script>
